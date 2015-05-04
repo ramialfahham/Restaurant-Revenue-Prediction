@@ -1,0 +1,86 @@
+Kaggle Competition: Restaurant Revenue Prediction
+========================================================
+Author: Rami Al-Fahham
+
+### Exploratory Analysis
+
+##### Import data
+```{r}
+train <- read.csv("train.csv", stringsAsFactors=FALSE, sep=",", dec = ".")
+test <- read.csv("test.csv", stringsAsFactors=FALSE, sep=",", dec = ".")
+```
+
+##### Quick overview of data structure and descriptive statistics
+```{r message=FALSE, warning=FALSE}
+require(ggplot2)
+require(lattice)
+
+#Quick summary
+str(train)
+str(test)
+summary(train)
+```
+
+
+train$sample <- 1
+test$revenue <- 0
+test$sample <- 0
+
+total <- rbind(train, test)
+
+
+##### Data preparation
+```{r}
+setup_predictors <- function(df){
+
+  df$year   <- as.numeric(substr(df$Open.Date, 7, 10))
+
+  df$month  <- as.numeric(substr(df$Open.Date, 1, 2))
+
+  df$day  <- as.numeric(substr(df$Open.Date, 4, 5))
+  
+  df
+}
+
+total <- setup_predictors(total)
+
+# Drop City, City.Group, Type
+# (a) due to missing values
+# (b) Relevant predictors: P1, P2-P37 representing demographic, real estate and commercial data for each restaurant
+train <- subset(total[-c(2,3,4,5)], sample == 1)
+test <- subset(total[-c(2,3,4,5)], sample == 0)
+```
+
+
+### Tree-based Methods
+  + Random Forest
+```{r message=FALSE, warning=FALSE}
+require(randomForest)
+require(MASS)
+```
+
+##### Fit Random Forest Model
+```{r eval=FALSE}
+# Model for bike casual demand
+
+# Find optimal number of randomly selected variables for a given number of trees
+set.seed(5)
+tuneRF(train[-c(1,39,40)], train$revenue, mtryStart = 7, ntreeTry = 10000, stepFactor = 2, improve = 0.001)
+
+# Random forest model
+set.seed(71)
+rf.rev <- randomForest(revenue ~ ., data = train[,-1], ntree=10000, mtry = 4, importance = TRUE)
+```
+
+
+#### Predict revenue and write file to submit
+```{r eval=FALSE}
+rfPred <- round(predict(rf.rev, test[,-1]))
+
+# Build dataframe with results
+rfSubmit <- data.frame(Id = test$Id, Prediction = rfPred)
+
+# Write results to .csv for submission
+write.csv(rfSubmit, file = "randomForestPred.csv", row.names=FALSE)
+```
+### Score using Random Forest (250000 trees, mtry = 4): 1718594.02449
